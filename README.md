@@ -1,160 +1,66 @@
-# FeatureCloud App Blank Template
+# Fed Neuralnet Microbiome 
 
-The app-blank template contains an initial state that does not execute commands other than transitioning to the terminal state.
-This template is a starting point for implementing apps by adding more states and operations.
- 
+## Description
+This featurecloud app trains a federated machine learning model to detect colorectal cancer (CRC) based on microbiota.
+It can also be used to train a model to train any other label.
 
-For registering and testing your apps or using other apps, please visit
-[FeatureCloud.ai](https://featurecloud.ai/). And for more information about FeatureCloud architecture,
-please refer to 
-[The FeatureCloud AI Store for Federated Learning in Biomedicine and Beyond](https://arxiv.org/abs/2105.05734) [[1]](#1).
+## Inputs
+The app requires the following inputs to start and execute properly:
 
+1. **`config.yml` Configuration File**:
+   - **Format**: YAML
+   - **Description**: A YAML file containing configuration parameters for the application, including paths to input data, model parameters, and execution settings.
+   - **Contents**:
+    ```yaml
+    microbiome_net_learner:
+        data: "PRJEB6070-data.csv"  # Path to the CSV file containing the dataset
+        target: "host_phenotype"    # The name of the target column in the dataset
+        sep: ","                    # the seperator used in the csvv file
+        max_iterations: 10           # Maximum number of iterations to run the computation (default: 10)
+        epochs_per_iteration: 10    # Number of epochs for each iteration of model training (default: 10)
+        batch_size: 26              # Batch size for training the model (default: 26)
+        learning_rate: 0.001        # Learning rate for the optimizer (default: 0.001).
+        test_size: 0.1              # Proportion of the dataset to be used as validation data (default: 0.1)
+    ```
+   - **Preparation**:
+     - Create a `config.yml` file in the specified input directory.
+     - Add the required configuration parameters according to the application's needs.
 
-## Developing Apps using FeatureCloud library
-FeatureCloud library facilitates app development inside the FeatureCloud platform. To develop apps, developers
-should define their states and register them to the default app.
+2. **Data File**:
+   - **Format**: CSV
+   - **Description**: A CSV file containing the dataset to be used for training and validation.
+   - **Preparation**:
+     - Ensure the dataset is in CSV format with a header row specifying column names.
+     - Place the CSV file in the location specified by the `data` parameter in `config.yml`.
 
-### defining new states
-For defining new states, in general, developers can use [`AppState`](engine/README.md#appstate-defining-custom-states)
-which supports further communications, transitions, logging, and operations.
+## Outputs
 
-#### AppState
-[`AppState`](https://github.com/FeatureCloud/FeatureCloud/tree/master/FeatureCloud/app/engine#appstate-defining-custom-states) is the building block of FeatureCloud apps that covers
-all the scenarios with the verifying mechanism. Each state of 
-the app should extend [`AppState`](https://github.com/FeatureCloud/FeatureCloud/tree/master/FeatureCloud/app/engine#appstate-defining-custom-states), which is an abstract class with two specific abstract methods:
-- [`register`](https://github.com/FeatureCloud/FeatureCloud/tree/master/FeatureCloud/app/engine/README.md#registering-a-specific-transition-for-state-register_transition):
-should be implemented by apps to register possible transitions between the current state to other states.
-This method is part of verifying mechanism in FeatureCloud apps that ensures logically eligible roles can participate in the current state
-and transition to other ones.
-- [`run`](https://github.com/FeatureCloud/FeatureCloud/tree/master/FeatureCloud/app/engine/README.md#executing-states-computation-run): executes all operations and calls for communication between FeatureCloud clients.
-`run` is another part of the verification mechanism in the FeatureCloud library that ensures the transitions to other states are logically correct
-by returning the name of the next state.
+The app generates several outputs as a result of its execution, which are saved to the specified output directory:
 
+1. **Model File** (`model.pt`):
+   - **Description**: A PyTorch model file containing the trained model's state dictionary.
+   - **Usage**: Can be loaded into a PyTorch model object for inference or further training.
 
-### Registering apps
-For each state, developers should extend one of the abstract states and call the helper function to register automatically
-the state in the default FeatureCloud app:
+2. **Training History** (`history.json`):
+   - **Format**: JSON
+   - **Description**: A JSON file containing the training history, including metrics such as loss, accuracy, and AUC for each epoch.
+   - **Usage**: Can be used for analysis of the training process, including plotting performance metrics over time.
 
-```angular2html
-@app_state(name='initial', role=Role.BOTH, app_name='example')
-class ExampleState(AppState):
-    def register(self):
-        self.register_transition('terminal', Role.BOTH)
+3. **Performance Plots** (`history.png`):
+   - **Format**: PNG image
+   - **Description**: A set of plots derived from the training history, showing the progression of loss, accuracy, and AUC metrics through the epochs.
+   - **Usage**: Provides a visual representation of the model's training performance.
 
-    def run(self):
-        self.read_config()
-        self.app.log(self.config)
-        return 'terminal'
-```
+The files can be found in a `results` folder that will be created by the app.
 
-### building the app docker image
-Once app implementation is done, building the docker image for testing or adding it to
-[FeatureCloud AI store](https://featurecloud.ai/ai-store?view=store&q=&r=0),
-developers should provide the following files.
-#### Dockerization files
+## Example data
+Some example data is provided in the GitHub repository in the data folder. This example data is taken
+from [\[1\]](https://doi.org/10.57745/7IVO3E).
 
-For dockerizing apps, regardless of their applications, there should be some specific files:
+## Additional models
+Additionally to the feed forward model provided in the app, the source code contains
+other models that could be applied locally. These models can be found in `src/central_model_feedForward.py`.
+A simple convolutional network as well as a ResNet is provided.
 
-1. [Dockerfile](Dockerfile)
-2. [server-config](server_config)
-   - [docker-entrypoint.sh](server_config/docker-entrypoint.sh)
-   - [nginx](server_config/nginx)
-   - [supervisord.conf](server_config/supervisord.conf)
-
-Developers should ensure that these files with the same structure and content exist in the same directory as their app
-implementation. 
-
-
-#### App-specific files
-All app-specific files should include data or codes strictly dependent on the app's functionality.
-
-##### main.py
-Each app should be implemented in a directory that includes the [`main.py`](main.py) file, which in turn comprises either direct
-implementation of states or importing them. Moreover, `main` should import `bottle` and `api` packages:
-```angular2html
-from bottle import Bottle
-
-from api.http_ctrl import api_server
-from api.http_web import web_server
-
-import apps.examples.dice
-
-from engine.app import app
-
-server = Bottle()
-```
-One can implement desired states in [`states.py`](states.py) and import it, which because of putting 
-[`app_state`](https://github.com/FeatureCloud/FeatureCloud/tree/master/FeatureCloud/app/engine/README.md#registering-states-to-the-app-app_state) on top of state classes, 
-merely importing the states and registering them into the [`app` instance](https://github.com/FeatureCloud/FeatureCloud/tree/master/FeatureCloud/app/engine/README.md#app-instance).     
-
-For running the app, inside a docker container, [`app.register()`](https://github.com/FeatureCloud/FeatureCloud/tree/master/FeatureCloud/app/engine/README.md#registering-all-transitions-appregister)
-should be called to register and verify all transitions; next, api and servers should mount at corresponding paths; and finally
-the server is ready to run the app.
-
-```angular2html
-    app.register()
-    server.mount('/api', api_server)
-    server.mount('/web', web_server)
-    server.run(host='localhost', port=5000)
-```
-
-All of the codes above, except for importing the app or, alternatively, implementing states, can be exactly same for all apps.  
-
-##### requirements.txt
-for installing required python libraries inside the docker image, developers should provide a list of libraries in [requirements.txt](requirements.txt).
-Some requirements are necessary for the FeatureCloud library, which should always be listed, are:
-```angular2html
-bottle
-jsonpickle
-joblib
-numpy
-bios
-pydot
-pyyaml
-```
-
-And the rest should be all other app-required libraries.
-
-##### config.yml
-Each app may need some hyper-parameters or arguments that the end-users should provide. Such data should be included
-in [`config.yml`](https://github.com/FeatureCloud/FeatureCloud/tree/master/FeatureCloud/app#config-file-configyml), which should be read and interpreted by the app. 
-
-### Run YOUR_APPLICATION
-
-#### Prerequisite
-
-To run YOUR_APPLICATION, you should install Docker and FeatureCloud pip package:
-
-```shell
-pip install featurecloud
-```
-
-Then either download YOUR_APPLICATION image from the FeatureCloud docker repository:
-
-```shell
-featurecloud app download featurecloud.ai/YOUR_APPLICATION
-```
-
-Or build the app locally:
-
-```shell
-featurecloud app build featurecloud.ai/YOUR_APPLICATION
-```
-
-Please provide example data so others can run YOUR_APPLICATION with the desired settings in the `config.yml` file.
-
-#### Run YOUR_APPLICATION in the test-bed
-
-You can run YOUR_APPLICATION as a standalone app in the [FeatureCloud test-bed](https://featurecloud.ai/development/test) or [FeatureCloud Workflow](https://featurecloud.ai/projects). You can also run the app using CLI:
-
-```shell
-featurecloud test start --app-image featurecloud.ai/YOUR_APPLICATION --client-dirs './sample/c1,./sample/c2' --generic-dir './sample/generic'
-```
-
-
-
-### References
-<a id="1">[1]</a> 
-Matschinske, J., Späth, J., Nasirigerdeh, R., Torkzadehmahani, R., Hartebrodt, A., Orbán, B., Fejér, S., Zolotareva,
-O., Bakhtiari, M., Bihari, B. and Bloice, M., 2021.
-The FeatureCloud AI Store for Federated Learning in Biomedicine and Beyond. arXiv preprint arXiv:2105.05734.
+# References
+[1] BARBET, P., ALMEIDA, M., PROBUL, N., BAUMBACH, J., PONS, N., PLAZA ONATE, F., & LE CHATELIER, E. (2022). Taxonomic profiles, functional profiles and manually curated metadata of human fecal metagenomes from public projects coming from colorectal cancer studies (Version V8) [Computer software]. Recherche Data Gouv. https://doi.org/10.57745/7IVO3E 

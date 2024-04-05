@@ -41,6 +41,7 @@ class InitialState(AppState):
 
         self.log('Reading config file...')
         config = bios.read(f'{INPUT}/config.yml')
+        config = config['microbiome_net_learner']
         self.log('Done reading config file.')
 
         input_file = config['data']
@@ -51,20 +52,18 @@ class InitialState(AppState):
         self.store('epochs_per_iteration', config.get("epochs_per_iteration", 10))
         self.log('Done reading config file.')
         self.log('Reading training data ...')
-        self.log('Done reading training data ...')
-        self.log('Preparing initial model ...')
-        genomeDataset = GenomDataset(f'{INPUT}/{input_file}')
+        genomeDataset = GenomDataset(f'{INPUT}/{input_file}', sep=config.get("sep", ","))
         # Create train and validation datasets
         num_features = genomeDataset.num_features
         train_data, val_data = train_test_split(genomeDataset, test_size=config.get("test_size", 0.1), random_state=42)
-
+        self.log('Done reading training data ...')
+        self.log('Preparing initial model ...')
         # Create DataLoader instances
         batch_size = config.get("batch_size", 26)
         train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=False)
         val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=False)
         input_size = num_features
         output_size = genomeDataset.num_classes  # Binary classification
-
         model = CentralModel(input_size, output_size, features=[30, 50], dropouts=[0.48, 0.49])
         optimizer = optim.Adam(model.parameters(), lr=config.get("learning_rate", 0.001))
 

@@ -34,10 +34,10 @@ class GenomDataset(Dataset):
     """
     Manage genome dataset
     """
-    def __init__(self, path: str, keepFeaturesRatio: float = None):
+    def __init__(self, path: str, keepFeaturesRatio: float = None, sep = ','):
         self._keepFeaturesRatio = keepFeaturesRatio
         # read in data
-        data = pd.read_csv(path)
+        data = pd.read_csv(path, sep=sep)
         data = self._clean(data)
         # get the labels and remove them from the data
         labels = data["host_phenotype"].values

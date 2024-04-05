@@ -5,3 +5,7 @@ venv
 *.zip
 *.yml
 *.json
+data/logs/
+data/site_info.json
+data/tests/
+
